@@ -29,23 +29,24 @@ class Player():
         for num in range(1, 5):
             img_right = pygame.image.load(f'/Users/alexanderdiaz/Desktop/Platformer-Game/guy{num}.png')
             img_right = pygame.transform.scale(img_right, (40, 80))
-            img_left = pygame.transform.flip(img_right,True,False)  #second arg is to flip from left to right
-            self.images_right.append(img_right)                     # thrid arg is to flip from up and down
+            img_left = pygame.transform.flip(img_right, True, False)  # second arg is to flip from left to right
+            self.images_right.append(img_right)  # thrid arg is to flip from up and down
             self.images_left.append(img_left)
         self.image = self.images_right[self.index]
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+        self.width = self.image.get_width()  # get width of image
+        self.height = self.image.get_height()  # get height of image
         self.vel_y = 0
         self.jumped = False
         self.direction = 0
-
 
     def update(self):
         # dx and dy is change in direction
         dx = 0
         dy = 0
-        walk_cooldown = 5  #20 iterations need to pass before updating the index
+        walk_cooldown = 5  # 20 iterations need to pass before updating the index
         # get key presses
         key = pygame.key.get_pressed()
         if key[pygame.K_SPACE] and self.jumped == False:
@@ -64,12 +65,12 @@ class Player():
         if key[pygame.K_LEFT] == False and key[pygame.K_RIGHT] == False:
             self.counter = 0
             self.index = 0
-            if self.direction == 1: #checking if stopping after moving to the right,show right. the same for the left
+            if self.direction == 1:  # checking if stopping after moving to the right,show right. the same for the left
                 self.image = self.images_right[self.index]
             if self.direction == -1:
                 self.image = self.images_left[self.index]
 
-        #handle animation
+        # handle animation
         if self.counter > walk_cooldown:
             self.counter = 0
             self.index += 1
@@ -86,6 +87,20 @@ class Player():
 
         dy += self.vel_y
         # check for collision
+        for tile in world.tile_list:
+            # check for collision in x direction
+            if tile[1].colliderect(self.rect.x+dx, self.rect.y, self.width, self.height):
+                dx = 0
+            # check for collision in y direction
+            if tile[1].colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                # check if below the ground (collision from under the block when player hits block from below)
+                if self.vel_y < 0:
+                    dy = tile[1].bottom - self.rect.top
+                    self.vel_y = 0
+                    # checking if landing on the block, hit the block from above
+                elif self.vel_y >= 0:
+                    dy = tile[1].top - self.rect.bottom
+                    self.vel_y = 0
 
         # update player coordinates
         self.rect.x += dx
@@ -95,6 +110,7 @@ class Player():
             self.rect.bottom = screen_height
         # draw player on the screen
         screen.blit(self.image, self.rect)
+        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
 
 
 class World():
@@ -127,6 +143,7 @@ class World():
     def draw(self):
         for tile in self.tile_list:
             screen.blit(tile[0], tile[1])
+            pygame.draw.rect(screen, (255, 255, 255), tile[1], 2)  # outline the blocks for collision detection
 
 
 world_data = [
