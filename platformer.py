@@ -19,32 +19,44 @@ game_over = 0
 # loading images
 sun_img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/sun.png')
 bg_img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/sky.png')
+restart_img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/restart_btn.png')
+
+
+class Button():
+    # can reuse buttons for other games as well
+    # image arg can be used to change what button, game over,start. just feed a different image
+    def __init__(self, x, y, image):
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.clicked = False
+
+    def draw(self):
+        action = False
+
+        # draw button
+
+        # get mouse position
+        pos = pygame.mouse.get_pos()
+        # check mouseover and clicked conditions
+        if self.rect.collidepoint(pos):
+            if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
+                action = True
+                self.clicked = True
+        if pygame.mouse.get_pressed()[0] == 0:
+            self.clicked == False
+
+        screen.blit(self.image, self.rect)
+
+        return action
 
 
 class Player():
     def __init__(self, x, y):
-        self.images_right = []
-        self.images_left = []
-        self.index = 0  # which item from the list i want
-        self.counter = 0  # control the speed the animation runs through
-        for num in range(1, 5):
-            img_right = pygame.image.load(f'/Users/alexanderdiaz/Desktop/Platformer-Game/guy{num}.png')
-            img_right = pygame.transform.scale(img_right, (40, 80))
-            img_left = pygame.transform.flip(img_right, True, False)  # second arg is to flip from left to right
-            self.images_right.append(img_right)  # thrid arg is to flip from up and down
-            self.images_left.append(img_left)
-        self.dead_image = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/ghost.png')
-        self.image = self.images_right[self.index]
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.width = self.image.get_width()  # get width of image
-        self.height = self.image.get_height()  # get height of image
-        self.vel_y = 0
-        self.jumped = False
-        self.direction = 0
+        self.reset(x, y)
 
-    def update(self,game_over):
+    def update(self, game_over):
         # dx and dy is change in direction
         dx = 0
         dy = 0
@@ -52,7 +64,7 @@ class Player():
         if game_over == 0:
             # get key presses
             key = pygame.key.get_pressed()
-            if key[pygame.K_SPACE] and self.jumped == False:
+            if key[pygame.K_SPACE] and self.jumped == False and self.in_air == False:
                 self.vel_y = -15
                 self.jumped = True
             if key[pygame.K_SPACE] == False:
@@ -89,6 +101,7 @@ class Player():
                 self.vel_y = 10
             dy += self.vel_y
             # check for collision
+            self.in_air = True
             for tile in world.tile_list:
                 # check for collision in x direction
                 if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
@@ -103,10 +116,11 @@ class Player():
                     elif self.vel_y >= 0:
                         dy = tile[1].top - self.rect.bottom
                         self.vel_y = 0
-            #check for collision with enemies
+                        self.in_air = False #False now that player has landed on something, now he can jump again
+            # check for collision with enemies
             if pygame.sprite.spritecollide(self, blob_group, False):
                 game_over = -1
-            #check for collision with lava
+            # check for collision with lava
             if pygame.sprite.spritecollide(self, lava_group, False):
                 game_over = -1
                 print(game_over)
@@ -123,6 +137,29 @@ class Player():
         pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
 
         return game_over
+
+    def reset(self, x, y):
+        self.images_right = []
+        self.images_left = []
+        self.index = 0  # which item from the list i want
+        self.counter = 0  # control the speed the animation runs through
+        for num in range(1, 5):
+            img_right = pygame.image.load(f'/Users/alexanderdiaz/Desktop/Platformer-Game/guy{num}.png')
+            img_right = pygame.transform.scale(img_right, (40, 80))
+            img_left = pygame.transform.flip(img_right, True, False)  # second arg is to flip from left to right
+            self.images_right.append(img_right)  # third arg is to flip from up and down
+            self.images_left.append(img_left)
+        self.dead_image = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/ghost.png')
+        self.image = self.images_right[self.index]
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.width = self.image.get_width()  # get width of image
+        self.height = self.image.get_height()  # get height of image
+        self.vel_y = 0
+        self.jumped = False
+        self.direction = 0
+        self.in_air = True
 
 
 class World():
@@ -153,8 +190,8 @@ class World():
                     blob = Enemy(col_count * tile_size, row_count * tile_size + 15)
                     blob_group.add(blob)
                 if tile == 6:
-                    lava = Lava(col_count * tile_size, row_count * tile_size + (tile_size//2))
-                    lava_group.add(lava)    #creating the lava
+                    lava = Lava(col_count * tile_size, row_count * tile_size + (tile_size // 2))
+                    lava_group.add(lava)  # creating the lava
                 col_count += 1
             row_count += 1
 
@@ -178,17 +215,19 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.x += self.move_direction
         self.move_counter += 1
         if self.move_counter > 50:
-            self.move_direction *= -1   #once it moves to the right a certain amount, it will turn back and change direction
-            self.move_counter *= -1 #properly moving left and right past their starting position
+            self.move_direction *= -1  # once it moves to the right a certain amount, it will turn back and change direction
+            self.move_counter *= -1  # properly moving left and right past their starting position
+
 
 class Lava(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)  # calling from super class
         img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/lava.png')
-        self.image = pygame.transform.scale(img,(tile_size, tile_size // 2))
+        self.image = pygame.transform.scale(img, (tile_size, tile_size // 2))
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+
 
 # 0 is blank space, 1 is dirt, 2 is grass
 world_data = [
@@ -218,6 +257,8 @@ player = Player(100, screen_height - 130)
 blob_group = pygame.sprite.Group()
 lava_group = pygame.sprite.Group()
 world = World(world_data)
+# create buttons
+restart_button = Button(screen_width // 2 - 50, screen_height // 2 + 100, restart_img)
 run = True
 while run:
 
@@ -233,6 +274,12 @@ while run:
     blob_group.draw(screen)
     lava_group.draw(screen)
     game_over = player.update(game_over)
+
+    # if player has died
+    if game_over == -1:
+        if restart_button.draw():
+            player.reset(100, screen_height - 130)
+            game_over = 0
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
