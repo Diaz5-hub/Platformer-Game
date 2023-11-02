@@ -3,17 +3,20 @@ from pygame.locals import *
 import pickle
 from os import path
 
-
 pygame.init()
 
 clock = pygame.time.Clock()
 fps = 60
 
 screen_width = 1000
-screen_height = 1000
+screen_height = 900
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Platformer')
+
+# define font
+font_score = pygame.font.SysFont('Bauhaus 93', 32)
+font = pygame.font.SysFont('Bauhaus 93', 70)
 
 # define game variables
 tile_size = 50
@@ -21,6 +24,11 @@ game_over = 0
 main_menu = True
 level = 1
 max_levels = 7
+score = 0
+
+# define colors
+white = (255, 255, 255)
+blue = (0, 0, 255)
 
 # loading images
 sun_img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/sun.png')
@@ -30,9 +38,14 @@ start_img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/star
 exit_img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/exit_btn.png')
 
 
+def draw_text(text, font, text_col, x, y):
+    img = font.render(text, True, text_col)
+    screen.blit(img, (x, y))
+
+
 # function to reset level
 def reset_level(level):
-    player.reset(10, screen_height - 130)
+    player.reset(100, screen_height - 130)
     blob_group.empty()
     lava_group.empty()
     exit_group.empty()
@@ -77,15 +90,13 @@ class Player():
     def __init__(self, x, y):
         self.reset(x, y)
 
-
-
     def update(self, game_over):
         dx = 0
         dy = 0
         walk_cooldown = 5
 
         if game_over == 0:
-            #get keypresses
+            # get keypresses
             key = pygame.key.get_pressed()
             if key[pygame.K_SPACE] and self.jumped == False and self.in_air == False:
                 self.vel_y = -15
@@ -108,8 +119,7 @@ class Player():
                 if self.direction == -1:
                     self.image = self.images_left[self.index]
 
-
-            #handle animation
+            # handle animation
             if self.counter > walk_cooldown:
                 self.counter = 0
                 self.index += 1
@@ -120,61 +130,57 @@ class Player():
                 if self.direction == -1:
                     self.image = self.images_left[self.index]
 
-
-            #add gravity
+            # add gravity
             self.vel_y += 1
             if self.vel_y > 10:
                 self.vel_y = 10
             dy += self.vel_y
 
-            #check for collision
+            # check for collision
             self.in_air = True
             for tile in world.tile_list:
-                #check for collision in x direction
+                # check for collision in x direction
                 if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
                     dx = 0
-                #check for collision in y direction
+                # check for collision in y direction
                 if tile[1].colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
-                    #check if below the ground i.e. jumping
+                    # check if below the ground i.e. jumping
                     if self.vel_y < 0:
                         dy = tile[1].bottom - self.rect.top
                         self.vel_y = 0
-                    #check if above the ground i.e. falling
+                    # check if above the ground i.e. falling
                     elif self.vel_y >= 0:
                         dy = tile[1].top - self.rect.bottom
                         self.vel_y = 0
                         self.in_air = False
 
-
-            #check for collision with enemies
+            # check for collision with enemies
             if pygame.sprite.spritecollide(self, blob_group, False):
                 game_over = -1
 
-            #check for collision with lava
+            # check for collision with lava
             if pygame.sprite.spritecollide(self, lava_group, False):
                 game_over = -1
 
-            #check for collision with exit
+            # check for collision with exit
             if pygame.sprite.spritecollide(self, exit_group, False):
                 game_over = 1
 
-
-            #update player coordinates
+            # update player coordinates
             self.rect.x += dx
             self.rect.y += dy
 
-
         elif game_over == -1:
             self.image = self.dead_image
+            draw_text('GAME OVER!',font,blue,(screen_width//2 - 200),screen_height // 2)
             if self.rect.y > 200:
                 self.rect.y -= 5
 
-        #draw player onto screen
+        # draw player onto screen
         screen.blit(self.image, self.rect)
         pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
 
         return game_over
-
 
     def reset(self, x, y):
         self.images_right = []
@@ -230,6 +236,9 @@ class World():
                 if tile == 6:
                     lava = Lava(col_count * tile_size, row_count * tile_size + (tile_size // 2))
                     lava_group.add(lava)  # creating the lava
+                if tile == 7:
+                    coin = Coin(col_count * tile_size + (tile_size // 2), row_count * tile_size + (tile_size // 2))
+                    coin_group.add(coin)
                 if tile == 8:
                     exit = Exit(col_count * tile_size, row_count * tile_size - (tile_size // 2))
                     exit_group.add(exit)
@@ -270,6 +279,15 @@ class Lava(pygame.sprite.Sprite):
         self.rect.y = y
 
 
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)  # calling from super class
+        img = pygame.image.load('/Users/alexanderdiaz/Desktop/Platformer-Game/coin.png')
+        self.image = pygame.transform.scale(img, (tile_size // 2, tile_size // 2))
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+
+
 class Exit(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)  # calling from super class
@@ -288,7 +306,12 @@ world_data = [
 player = Player(150, screen_height - 130)
 blob_group = pygame.sprite.Group()
 lava_group = pygame.sprite.Group()
+coin_group = pygame.sprite.Group()
 exit_group = pygame.sprite.Group()
+
+# create dummy coin for showing score
+score_coin = Coin(tile_size // 2, tile_size // 2)
+coin_group.add(score_coin)
 # load in level data and create world
 if path.exists(f'/Users/alexanderdiaz/Desktop/Platformer-Game/level{level}_data'):
     pickle_in = open(f'/Users/alexanderdiaz/Desktop/Platformer-Game/level{level}_data', 'rb')
@@ -316,9 +339,15 @@ while run:
         world.draw()
         if game_over == 0:
             blob_group.update()
+            # update score
+            # check if a coin has been collected
+            if pygame.sprite.spritecollide(player, coin_group, True):
+                score += 1
+            draw_text('X ' + str(score), font_score, white, tile_size - 10, 10)
 
         blob_group.draw(screen)
         lava_group.draw(screen)
+        coin_group.draw(screen)
         exit_group.draw(screen)
         game_over = player.update(game_over)
 
@@ -328,6 +357,7 @@ while run:
                 world_data = []
                 world = reset_level(level)
                 game_over = 0
+                score = 0
         # if player has complete the level
         if game_over == 1:
             # reset the game and go to next level
@@ -338,12 +368,14 @@ while run:
                 world = reset_level(level)
                 game_over = 0
             else:
+                draw_text('YOU WIN!', font, blue, (screen_width // 2) - 140, screen_height // 2)
                 # restart game
                 if restart_button.draw():
                     level = 1
                     world_data = []
                     world = reset_level(level)
                     game_over = 0
+                    score = 0
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
